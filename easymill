@@ -41,6 +41,8 @@ DRILL_FEED=90
 DRILL_SPEED=10000
 DRILL_TOLERANCE=0
 
+declare -a CAT_FILES
+
 for file in ./*.gbr; do
 	if [[ $file =~ "Edge_Cuts" ]]; then
 		EDGE_CUTS_FILE=`pwd`/$file
@@ -56,19 +58,18 @@ for file in ./*.gbr; do
 done
 
 if [ -f "$ISO_FILE" ]; then
-	echo "open_gerber \"$ISO_FILE\" -outname $ISO_NAME">$FLAT_CAM_SCRIPT
+	echo "open_gerber \"$ISO_FILE\" -outname $ISO_NAME">"$FLAT_CAM_SCRIPT"
 	if [ -f "$EDGE_CUTS_FILE" ]; then
-		echo "open_gerber \"$EDGE_CUTS_FILE\" -outname $EDGE_NAME">>$FLAT_CAM_SCRIPT
+		echo "open_gerber \"$EDGE_CUTS_FILE\" -outname $EDGE_NAME">>"$FLAT_CAM_SCRIPT"
 	fi
 	
 	if ((GEO_FLIP_X>1)); then
-		echo "mirror $ISO_NAME -axis Y -box $EDGE_NAME">>$FLAT_CAM_SCRIPT
+		echo "mirror $ISO_NAME -axis Y -box $EDGE_NAME">>"$FLAT_CAM_SCRIPT"
 	fi
-	echo "isolate $ISO_NAME -dia $ISO_TOOLSIZE -passes $ISO_PASSES -overlap $ISO_OVERLAP -combine 1 -outname $ISO_GEO">>$FLAT_CAM_SCRIPT
-	echo "cncjob $ISO_GEO -dia $ISO_TOOLSIZE -z_cut $ISO_DEPTH -z_move 2 -feedrate $ISO_FEED -spindlespeed $ISO_SPEED -outname $ISO_CNC">>$FLAT_CAM_SCRIPT
-	echo "write_gcode $ISO_CNC \"$ISO_GCODE\"">>$FLAT_CAM_SCRIPT
-	CAT_LIST="$ISO_GCODE"
-	
+	echo "isolate $ISO_NAME -dia $ISO_TOOLSIZE -passes $ISO_PASSES -overlap $ISO_OVERLAP -combine 1 -outname $ISO_GEO">>"$FLAT_CAM_SCRIPT"
+	echo "cncjob $ISO_GEO -dia $ISO_TOOLSIZE -z_cut $ISO_DEPTH -z_move 2 -feedrate $ISO_FEED -spindlespeed $ISO_SPEED -outname $ISO_CNC">>"$FLAT_CAM_SCRIPT"
+	echo "write_gcode $ISO_CNC \"$ISO_GCODE\"">>"$FLAT_CAM_SCRIPT"
+	CAT_FILES+=($ISO_GCODE)
 	
 	DRILLNO=1
 	for file in ./*.drl; do
@@ -76,37 +77,49 @@ if [ -f "$ISO_FILE" ]; then
 		DRILLNO=$((DRILLNO+1))
 		DRILL_FILE=`pwd`/$file
 		DRILL_GCODE=`pwd`/.${DRILL_NAME}.nc
-		echo "open_excellon \"$DRILL_FILE\" -outname $DRILL_NAME">>$FLAT_CAM_SCRIPT
+		echo "open_excellon \"$DRILL_FILE\" -outname $DRILL_NAME">>"$FLAT_CAM_SCRIPT"
 		if ((GEO_FLIP_X>1)); then
-			echo "mirror $DRILL_NAME -axis Y -box $EDGE_NAME">>$FLAT_CAM_SCRIPT
+			echo "mirror $DRILL_NAME -axis Y -box $EDGE_NAME">>"$FLAT_CAM_SCRIPT"
 		fi
-		echo "milldrills $DRILL_NAME -tooldia $DRILL_TOOLSIZE -outname geo_$DRILL_NAME">>$FLAT_CAM_SCRIPT
-		echo "cncjob geo_$DRILL_NAME -dia $DRILL_TOOLSIZE -z_cut $DRILL_DEPTH -z_move 2 -feedrate $DRILL_FEED -spindlespeed $DRILL_SPEED -dpp $DRILL_STEP -outname cnc_$DRILL_NAME">>$FLAT_CAM_SCRIPT
-		echo "write_gcode cnc_$DRILL_NAME \"$DRILL_GCODE\"">>$FLAT_CAM_SCRIPT
-		CAT_LIST=$CAT_LIST "$DRILL_GCODE"		
+		echo "milldrills $DRILL_NAME -tooldia $DRILL_TOOLSIZE -outname geo_$DRILL_NAME">>"$FLAT_CAM_SCRIPT"
+		echo "cncjob geo_$DRILL_NAME -dia $DRILL_TOOLSIZE -z_cut $DRILL_DEPTH -z_move 2 -feedrate $DRILL_FEED -spindlespeed $DRILL_SPEED -dpp $DRILL_STEP -outname cnc_$DRILL_NAME">>"$FLAT_CAM_SCRIPT"
+		echo "write_gcode cnc_$DRILL_NAME \"$DRILL_GCODE\"">>"$FLAT_CAM_SCRIPT"
+		CAT_FILES+=($DRILL_GCODE)
 	done
 	
 	if [ -f "$EDGE_CUTS_FILE" ]; then
 		if ((GEO_FLIP_X>1)); then
-			echo "mirror $EDGE_NAME -axis Y -box $EDGE_NAME">>$FLAT_CAM_SCRIPT
+			echo "mirror $EDGE_NAME -axis Y -box $EDGE_NAME">>"$FLAT_CAM_SCRIPT"
 		fi
-		echo "exteriors $EDGE_NAME -outname tmp_$EDGE_CUTS_GEO">>$FLAT_CAM_SCRIPT
-		echo "geocutout tmp_$EDGE_CUTS_GEO -dia $EDGE_TOOLSIZE -margin $EDGE_MARGIN -gapsize $EDGE_SIZE -gaps $EDGE_MODE -outname $EDGE_CUTS_GEO">>$FLAT_CAM_SCRIPT
-		echo "delete tmp_$EDGE_CUTS_GEO -f 1">>$FLAT_CAM_SCRIPT
-		echo "cncjob $EDGE_CUTS_GEO -dia $EDGE_TOOLSIZE -z_cut $EDGE_DEPTH -z_move 2 -feedrate $EDGE_FEED -spindlespeed $EDGE_SPEED -dpp $EDGE_STEP -outname $EDGE_CUTS_CNC">>$FLAT_CAM_SCRIPT
-		echo "write_gcode $EDGE_CUTS_CNC \"$EDGE_CUTS_GCODE\"">>$FLAT_CAM_SCRIPT
-		CAT_LIST=$CAT_LIST "$EDGE_CUTS_GCODE"
+		echo "exteriors $EDGE_NAME -outname tmp_$EDGE_CUTS_GEO">>"$FLAT_CAM_SCRIPT"
+		echo "geocutout tmp_$EDGE_CUTS_GEO -dia $EDGE_TOOLSIZE -margin $EDGE_MARGIN -gapsize $EDGE_SIZE -gaps $EDGE_MODE -outname $EDGE_CUTS_GEO">>"$FLAT_CAM_SCRIPT"
+		echo "delete tmp_$EDGE_CUTS_GEO -f 1">>"$FLAT_CAM_SCRIPT"
+		echo "cncjob $EDGE_CUTS_GEO -dia $EDGE_TOOLSIZE -z_cut $EDGE_DEPTH -z_move 2 -feedrate $EDGE_FEED -spindlespeed $EDGE_SPEED -dpp $EDGE_STEP -outname $EDGE_CUTS_CNC">>"$FLAT_CAM_SCRIPT"
+		echo "write_gcode $EDGE_CUTS_CNC \"$EDGE_CUTS_GCODE\"">>"$FLAT_CAM_SCRIPT"
+		CAT_FILES+=($EDGE_CUTS_GCODE)
 	fi
 	
-	# echo "plot_all">>$FLAT_CAM_SCRIPT
-	echo "quit_flatcam">>$FLAT_CAM_SCRIPT
+	# echo "plot_all">>"$FLAT_CAM_SCRIPT"
+	echo "quit_flatcam">>"$FLAT_CAM_SCRIPT"
 	
 	cat $FLAT_CAM_SCRIPT
 	
 	mv "$FLAT_CAM_GCODE" "${FLAT_CAM_GCODE}.bak"
-	rm $CAT_LIST 
-	python3 $FLAT_CAM_PY --shellfile=$FLAT_CAM_SCRIPT	
-	cat $CAT_LIST>$FLAT_CAM_GCODE
+	for file in "${CAT_FILES[@]}"
+	do
+		rm "$file"
+   	done
+   	
+	python3 $FLAT_CAM_PY "--shellfile=$FLAT_CAM_SCRIPT"
+	echo "$CAT_LIST"
+	
+	touch "$FLAT_CAM_GCODE"
+	
+	for file in "${CAT_FILES[@]}"
+	do
+		cat "$file">>"$FLAT_CAM_GCODE"
+   	done
+	
 	echo "Combined GCODE written to ${FLAT_CAM_GCODE}"
 else
 	echo "No copper side gerber file found."
